@@ -86,17 +86,288 @@ function WarnSeverity({ s }: { s: string }) {
   return <span className={`rank-badge ${v.cls}`}>{v.label}</span>;
 }
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Admin = {
+  id: number;
+  nick: string;
+  steamId: string;
+  rank: number;
+  status: string;
+  tickets: number;
+  warnings: number;
+  solved: number;
+};
+
+// ─── Add Admin Modal ──────────────────────────────────────────────────────────
+
+const EMPTY_FORM = { nick: "", steamId: "", rank: 2, status: "offline" };
+
+function AddAdminModal({ onClose, onAdd }: { onClose: () => void; onAdd: (a: Admin) => void }) {
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function validate() {
+    const e: Record<string, string> = {};
+    if (!form.nick.trim()) e.nick = "Введите никнейм";
+    if (!form.steamId.trim()) e.steamId = "Введите SteamID";
+    else if (!/^STEAM_[01]:[01]:\d+$/.test(form.steamId.trim())) e.steamId = "Формат: STEAM_0:1:12345678";
+    return e;
+  }
+
+  function handleSubmit() {
+    const e = validate();
+    if (Object.keys(e).length) { setErrors(e); return; }
+    onAdd({
+      id: Date.now(),
+      nick: form.nick.trim(),
+      steamId: form.steamId.trim(),
+      rank: form.rank,
+      status: form.status,
+      tickets: 0,
+      warnings: 0,
+      solved: 0,
+    });
+    onClose();
+  }
+
+  const inputStyle = (err?: string) => ({
+    width: "100%",
+    padding: "0.6rem 0.875rem",
+    borderRadius: "8px",
+    background: "rgba(255,255,255,0.04)",
+    border: `1px solid ${err ? "#e63946" : "var(--panel-border)"}`,
+    color: "var(--panel-white)",
+    fontFamily: "'Golos Text', sans-serif",
+    fontSize: "0.875rem",
+    outline: "none",
+    transition: "border-color 0.2s",
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="w-full max-w-md mx-4 rounded-2xl p-6 animate-fade-in-up"
+        style={{
+          background: "var(--panel-surface)",
+          border: "1px solid rgba(230,57,70,0.25)",
+          boxShadow: "0 24px 60px rgba(0,0,0,0.6), 0 0 40px rgba(230,57,70,0.08)",
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(230,57,70,0.15)", border: "1px solid rgba(230,57,70,0.3)" }}>
+              <Icon name="UserPlus" size={15} style={{ color: "#e63946" }} />
+            </div>
+            <h3 style={{ fontFamily: "'Oswald', sans-serif", fontSize: "1.1rem", letterSpacing: "0.06em", textTransform: "uppercase" as const, color: "var(--panel-white)" }}>
+              Добавить администратора
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+            style={{ background: "rgba(255,255,255,0.05)", color: "var(--panel-muted)" }}
+          >
+            <Icon name="X" size={14} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {/* Nick */}
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: "var(--panel-muted)", fontFamily: "'Oswald', sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" as const }}>
+              Никнейм
+            </label>
+            <input
+              value={form.nick}
+              onChange={e => { setForm(f => ({ ...f, nick: e.target.value })); setErrors(er => ({ ...er, nick: "" })); }}
+              placeholder="Например: DarkWolf"
+              style={inputStyle(errors.nick)}
+              onFocus={e => (e.currentTarget.style.borderColor = errors.nick ? "#e63946" : "rgba(230,57,70,0.5)")}
+              onBlur={e => (e.currentTarget.style.borderColor = errors.nick ? "#e63946" : "var(--panel-border)")}
+            />
+            {errors.nick && <p className="text-xs mt-1" style={{ color: "#e63946" }}>{errors.nick}</p>}
+          </div>
+
+          {/* SteamID */}
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: "var(--panel-muted)", fontFamily: "'Oswald', sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" as const }}>
+              SteamID
+            </label>
+            <input
+              value={form.steamId}
+              onChange={e => { setForm(f => ({ ...f, steamId: e.target.value })); setErrors(er => ({ ...er, steamId: "" })); }}
+              placeholder="STEAM_0:1:12345678"
+              style={{ ...inputStyle(errors.steamId), fontFamily: "monospace" }}
+              onFocus={e => (e.currentTarget.style.borderColor = errors.steamId ? "#e63946" : "rgba(230,57,70,0.5)")}
+              onBlur={e => (e.currentTarget.style.borderColor = errors.steamId ? "#e63946" : "var(--panel-border)")}
+            />
+            {errors.steamId && <p className="text-xs mt-1" style={{ color: "#e63946" }}>{errors.steamId}</p>}
+          </div>
+
+          {/* Rank */}
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: "var(--panel-muted)", fontFamily: "'Oswald', sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" as const }}>
+              Ранг
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {RANKS.map((r, i) => (
+                <button
+                  key={i}
+                  onClick={() => setForm(f => ({ ...f, rank: i }))}
+                  className="rank-badge transition-all"
+                  style={{
+                    color: r.color,
+                    background: form.rank === i ? r.bg : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${form.rank === i ? r.border : "var(--panel-border)"}`,
+                    boxShadow: form.rank === i ? `0 0 8px ${r.color}40` : "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: "var(--panel-muted)", fontFamily: "'Oswald', sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" as const }}>
+              Статус
+            </label>
+            <div className="flex gap-2">
+              {[
+                { key: "online", label: "Онлайн", color: "#22c55e" },
+                { key: "offline", label: "Оффлайн", color: "#6b6b80" },
+                { key: "afk", label: "AFK", color: "#f59e0b" },
+              ].map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => setForm(f => ({ ...f, status: s.key }))}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all"
+                  style={{
+                    background: form.status === s.key ? `${s.color}18` : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${form.status === s.key ? `${s.color}60` : "var(--panel-border)"}`,
+                    color: form.status === s.key ? s.color : "var(--panel-muted)",
+                    cursor: "pointer",
+                    fontFamily: "'Golos Text', sans-serif",
+                  }}
+                >
+                  <span className="status-dot" style={{ background: s.color, width: 7, height: 7 }} />
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm transition-all"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid var(--panel-border)",
+              color: "var(--panel-muted)",
+              fontFamily: "'Golos Text', sans-serif",
+              cursor: "pointer",
+            }}
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2"
+            style={{
+              background: "var(--panel-red)",
+              border: "1px solid transparent",
+              color: "#fff",
+              fontFamily: "'Golos Text', sans-serif",
+              cursor: "pointer",
+              boxShadow: "0 0 16px var(--panel-red-glow)",
+            }}
+          >
+            <Icon name="UserPlus" size={14} />
+            Добавить
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Sections ────────────────────────────────────────────────────────────────
 
 function AdminsSection() {
+  const [admins, setAdmins] = useState<Admin[]>(ADMINS);
   const [search, setSearch] = useState("");
-  const filtered = ADMINS.filter(
+  const [showModal, setShowModal] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  const filtered = admins.filter(
     a =>
       a.nick.toLowerCase().includes(search.toLowerCase()) ||
       a.steamId.toLowerCase().includes(search.toLowerCase())
   );
 
+  function handleAdd(a: Admin) {
+    setAdmins(prev => [...prev, a]);
+  }
+
+  function handleDelete(id: number) {
+    setAdmins(prev => prev.filter(a => a.id !== id));
+    setDeleteId(null);
+  }
+
   return (
+    <>
+      {showModal && <AddAdminModal onClose={() => setShowModal(false)} onAdd={handleAdd} />}
+
+      {/* Confirm delete */}
+      {deleteId !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        >
+          <div
+            className="w-full max-w-sm mx-4 rounded-2xl p-6 animate-fade-in-up"
+            style={{ background: "var(--panel-surface)", border: "1px solid rgba(230,57,70,0.3)", boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(230,57,70,0.15)" }}>
+                <Icon name="Trash2" size={16} style={{ color: "#e63946" }} />
+              </div>
+              <div>
+                <p className="font-semibold text-sm" style={{ color: "var(--panel-white)" }}>Удалить администратора?</p>
+                <p className="text-xs" style={{ color: "var(--panel-muted)" }}>Это действие нельзя отменить</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteId(null)}
+                className="flex-1 py-2 rounded-xl text-sm transition-all"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--panel-border)", color: "var(--panel-muted)", cursor: "pointer", fontFamily: "'Golos Text', sans-serif" }}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => handleDelete(deleteId)}
+                className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: "#e63946", color: "#fff", border: "none", cursor: "pointer", fontFamily: "'Golos Text', sans-serif", boxShadow: "0 0 12px var(--panel-red-glow)" }}
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     <div className="animate-fade-in-up">
       <div className="flex items-center gap-3 mb-6">
         <div className="flex-1 relative">
@@ -118,14 +389,29 @@ function AdminsSection() {
         </div>
         <div className="flex items-center gap-2 text-sm" style={{ color: "var(--panel-muted)" }}>
           <Icon name="Users" size={14} />
-          <span>{filtered.length} из {ADMINS.length}</span>
+          <span>{filtered.length} из {admins.length}</span>
         </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex-shrink-0"
+          style={{
+            background: "var(--panel-red)",
+            color: "#fff",
+            border: "1px solid transparent",
+            cursor: "pointer",
+            fontFamily: "'Golos Text', sans-serif",
+            boxShadow: "0 0 12px var(--panel-red-glow)",
+          }}
+        >
+          <Icon name="UserPlus" size={14} />
+          <span className="hidden sm:inline">Добавить</span>
+        </button>
       </div>
 
       <div
         className="grid gap-3 px-4 py-2 mb-2 rounded-lg"
         style={{
-          gridTemplateColumns: "2fr 2fr 2.5fr 1fr 1fr 1fr 1fr",
+          gridTemplateColumns: "2fr 2fr 2.5fr 1fr 1fr 1fr 1fr 40px",
           background: "rgba(255,255,255,0.03)",
           fontSize: "0.7rem",
           color: "var(--panel-muted)",
@@ -141,15 +427,22 @@ function AdminsSection() {
         <span>Тикеты</span>
         <span>Решено</span>
         <span>Выговоры</span>
+        <span />
       </div>
 
       <div style={{ background: "var(--panel-card)", borderRadius: "12px", border: "1px solid var(--panel-border)", overflow: "hidden" }}>
+        {filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-3" style={{ color: "var(--panel-muted)" }}>
+            <Icon name="Users" size={32} />
+            <p className="text-sm">Администраторы не найдены</p>
+          </div>
+        )}
         {filtered.map((admin, i) => (
           <div
             key={admin.id}
             className="admin-row grid gap-3 px-4 py-3.5 items-center animate-fade-in-up"
             style={{
-              gridTemplateColumns: "2fr 2fr 2.5fr 1fr 1fr 1fr 1fr",
+              gridTemplateColumns: "2fr 2fr 2.5fr 1fr 1fr 1fr 1fr 40px",
               animationDelay: `${i * 0.04}s`,
               opacity: 0,
               animationFillMode: "forwards",
@@ -182,7 +475,7 @@ function AdminsSection() {
                 <div
                   className="progress-fill"
                   style={{
-                    width: `${Math.round((admin.solved / admin.tickets) * 100)}%`,
+                    width: admin.tickets > 0 ? `${Math.round((admin.solved / admin.tickets) * 100)}%` : "0%",
                     background: "linear-gradient(90deg, #22c55e, #4ade80)",
                   }}
                 />
@@ -195,10 +488,33 @@ function AdminsSection() {
                 <span style={{ color: "var(--panel-muted)", fontSize: "0.85rem" }}>—</span>
               )}
             </div>
+            <button
+              onClick={() => setDeleteId(admin.id)}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+              style={{
+                background: "transparent",
+                border: "1px solid transparent",
+                color: "var(--panel-muted)",
+                cursor: "pointer",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "rgba(230,57,70,0.12)";
+                e.currentTarget.style.borderColor = "rgba(230,57,70,0.3)";
+                e.currentTarget.style.color = "#e63946";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.borderColor = "transparent";
+                e.currentTarget.style.color = "var(--panel-muted)";
+              }}
+            >
+              <Icon name="Trash2" size={13} />
+            </button>
           </div>
         ))}
       </div>
     </div>
+    </>
   );
 }
 
